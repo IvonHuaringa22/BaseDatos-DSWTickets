@@ -52,6 +52,14 @@ CREATE TABLE Tickets (
     IdZona INT FOREIGN KEY REFERENCES Zonas(IdZona)
 );
 
+CREATE TABLE Clientes (
+    IdCliente INT PRIMARY KEY IDENTITY(1,1),
+    Nombre NVARCHAR(100),
+    DNI NVARCHAR(15),
+    Telefono NVARCHAR(20),
+    IdUsuario INT FOREIGN KEY REFERENCES Usuarios(IdUsuario)
+);
+
 ------ PROCEDIMIENTOS CRUD USUARIO ----------
 
 -- Crear un nuevo usuario
@@ -135,24 +143,19 @@ CREATE PROCEDURE ListarEventos
 AS
 BEGIN
     SELECT 
-        e.IdEvento,
-        e.NombreEvento,
-        e.TipoEvento,
-        e.Lugar,
-        e.Fecha,
-        e.Hora,
-        e.Descripcion,
-        z.IdZona,
-        z.NombreZona,
-        z.Precio,
-        z.Capacidad
-    FROM Eventos e
-    LEFT JOIN Zonas z ON e.IdEvento = z.IdEvento
-    ORDER BY e.Fecha, e.Hora;
+        IdEvento,
+        NombreEvento,
+        TipoEvento,
+        Lugar,
+        Fecha,
+        Hora,
+        Descripcion
+    FROM Eventos
+    ORDER BY Fecha, Hora;
 END;
 GO
 
-CREATE PROCEDURE BuscarEventoPorId
+CREATE PROCEDURE ObtenerEvento
     @IdEvento INT
 AS
 BEGIN
@@ -201,7 +204,7 @@ BEGIN
 END;
 GO
 
--------------PROCEDIMIENTOS otros-------------------
+-------------PROCEDIMIENTOS COMPRA TICKETS -------------------
 
 CREATE PROCEDURE RegistrarCompra
     @IdUsuario INT,
@@ -227,33 +230,65 @@ BEGIN
 END;
 GO
 
--- Insertar usuarios y otros
+CREATE PROCEDURE ComprarTickets
+    @IdUsuario INT,
+    @IdZona INT,
+    @CantidadTickets INT,
+    @MetodoPago NVARCHAR(50),
+    @EstadoPago NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CapacidadDisponible INT;
+    DECLARE @IdCompra INT;
+
+    -- Validar capacidad
+    SELECT @CapacidadDisponible = Capacidad
+    FROM Zonas
+    WHERE IdZona = @IdZona;
+
+    IF @CapacidadDisponible < @CantidadTickets
+    BEGIN
+        RAISERROR('No hay suficientes tickets disponibles.', 16, 1);
+        RETURN;
+    END
+
+    -- Registrar la compra
+    EXEC RegistrarCompra @IdUsuario, @MetodoPago, @EstadoPago, @IdCompra OUTPUT;
+
+    -- Insertar tickets
+    DECLARE @Contador INT = 1;
+    WHILE @Contador <= @CantidadTickets
+    BEGIN
+        EXEC InsertarTicket @IdCompra, @IdZona;
+        SET @Contador = @Contador + 1;
+    END
+
+    -- Actualizar capacidad
+    UPDATE Zonas
+    SET Capacidad = Capacidad - @CantidadTickets
+    WHERE IdZona = @IdZona;
+END;
+GO
+
+
+------------------------------- INSERCIONES-----------------------------------
+
+---- Insertar usuarios-----------
 EXEC RegistrarUsuario 'Sayuri Huaringa', 'sayuri@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
 EXEC RegistrarUsuario 'Carlos Admin', 'admin@email.com', 'admin123', 'Administrador';
 EXEC RegistrarUsuario 'Ivon Huaringa', 'ivonhuaringa@gmail.com', '$2a$12$r0iMhShyg.sT2x8TB59rauSGDDTsy2BrKW2RhIWYR2Ash8qTRK1ce', 'Administrador';
+EXEC RegistrarUsuario 'Andre Quinteros', 'andre@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
+EXEC RegistrarUsuario 'Nilton Flores', 'nilton@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
 
-UPDATE Usuarios
-SET Contraseña = '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG'
-WHERE Correo = 'ana@email.com';
+----Insert Clientes-------
+INSERT INTO Clientes (Nombre, DNI, Telefono, IdUsuario) VALUES
+('Andre Quinteros', '71234567', '987654321', 8),
+('Nilton Flores', '71234567', '987654321', 9),
+('Sayuri Huaringa', '71234567', '987654321', 5);
 
--- Insertar evento
-EXEC InsertarEvento 'Concierto de Rock', 'Concierto', 'Estadio Nacional', '2025-07-10', '20:00', 'Grupo Rio';
-
--- Insertar zonas para el evento (IdEvento = 1)
-EXEC InsertarZona 1, 'VIP', 200.00, 50;
-EXEC InsertarZona 1, 'Media', 120.00, 100;
-EXEC InsertarZona 1, 'Popular', 60.00, 200;
-
--- Registrar compra
-DECLARE @IdCompra INT;
-EXEC RegistrarCompra 1, 'Tarjeta', 'Pagado', @IdCompra OUTPUT;
-
--- Insertar tickets (ejemplo de tickets para zona VIP)
-EXEC InsertarTicket @IdCompra, 1;
-EXEC InsertarTicket @IdCompra, 1;
-GO
-
--- Insertar eventos
+----- Insertar eventos---------
 INSERT INTO Eventos (NombreEvento, TipoEvento, Lugar, Fecha, Hora, Descripcion) VALUES
 ('Concierto de Rock', 'Concierto', 'Estadio Nacional', '2025-06-15', '19:30:00', 'Una noche llena de rock y energía.'),
 ('Obra de Teatro Clásica', 'Teatro', 'Teatro Municipal', '2025-07-10', '18:00:00', 'Presentación de una obra clásica con actores reconocidos.'),
@@ -270,86 +305,36 @@ INSERT INTO Zonas (IdEvento, NombreZona, Precio, Capacidad) VALUES
 (4, 'VIP', 100.00, 400), -- Festival de Jazz
 (4, 'General', 50.00, 1500);
 
+-- Registrar compra
+DECLARE @IdCompra INT;
+EXEC RegistrarCompra 1, 'Tarjeta', 'Pagado', @IdCompra OUTPUT;
 
-CREATE PROCEDURE ComprarTickets
-    @IdUsuario INT,
-    @IdZona INT,
-    @CantidadTickets INT,
-    @MetodoPago NVARCHAR(50),
-    @EstadoPago NVARCHAR(50)
-AS
-BEGIN
-    DECLARE @IdEvento INT;
-    DECLARE @IdCompra INT;
-    DECLARE @TotalTicketsExistentes INT;
-
-    -- Obtener el evento de la zona
-    SELECT @IdEvento = IdEvento
-    FROM Zonas
-    WHERE IdZona = @IdZona;
-
-    -- Contar cuántos tickets ya tiene este usuario en este evento
-    SELECT @TotalTicketsExistentes = COUNT(*)
-    FROM Tickets t
-    INNER JOIN Compras c ON t.IdCompra = c.IdCompra
-    INNER JOIN Zonas z ON t.IdZona = z.IdZona
-    WHERE c.IdUsuario = @IdUsuario
-      AND z.IdEvento = @IdEvento;
-
-    -- Verificar si puede comprar
-    IF (@TotalTicketsExistentes + @CantidadTickets) > 5
-    BEGIN
-        RAISERROR ('No puedes comprar más de 5 tickets por evento.', 16, 1);
-        RETURN;
-    END;
+-- Insertar tickets (ejemplo de tickets para zona VIP)
+EXEC InsertarTicket @IdCompra, 1;
+EXEC InsertarTicket @IdCompra, 1;
 GO
 
-    -- Registrar la compra
-    INSERT INTO Compras (IdUsuario, MetodoPago, EstadoPago)
-    VALUES (@IdUsuario, @MetodoPago, @EstadoPago);
+----------- Consultas y mantenimiento ------------------
+SELECT * FROM Usuarios;
+SELECT * FROM Clientes;
+SELECT * FROM Eventos;
+SELECT * FROM Zonas;
 
-    SET @IdCompra = SCOPE_IDENTITY();
+SELECT IdEvento, NombreEvento FROM Eventos;
+SELECT IdZona, IdEvento, NombreZona FROM Zonas;
 
-    -- Insertar los tickets
-    DECLARE @i INT = 1;
-    WHILE @i <= @CantidadTickets
-    BEGIN
-        INSERT INTO Tickets (IdCompra, IdZona)
-        VALUES (@IdCompra, @IdZona);
+-- Reiniciar IDENTITY----
+DELETE FROM Zonas;
+DBCC CHECKIDENT ('Zonas', RESEED, 0);
 
-        SET @i = @i + 1;
-    END;
+DELETE FROM Eventos;
+DBCC CHECKIDENT ('Eventos', RESEED, 0);
+
+-- Join de ejemplo
+SELECT * FROM Eventos e
+JOIN Zonas z ON e.IdEvento = z.IdEvento;
 GO
 
-EXEC ComprarTickets
-    @IdUsuario = 1,
-    @IdZona = 1,
-    @CantidadTickets = 2,
-    @MetodoPago = 'Tarjeta',
-    @EstadoPago = 'Pagado';
+ ------------------
 
-
-SELECT 
-    u.Nombre AS NombreUsuario,
-    e.NombreEvento,
-    z.NombreZona,
-    COUNT(t.IdTicket) AS CantidadTickets,
-    c.MetodoPago,
-    c.EstadoPago,
-    c.FechaCompra
-FROM Compras c
-INNER JOIN Usuarios u ON c.IdUsuario = u.IdUsuario
-INNER JOIN Tickets t ON c.IdCompra = t.IdCompra
-INNER JOIN Zonas z ON t.IdZona = z.IdZona
-INNER JOIN Eventos e ON z.IdEvento = e.IdEvento
-GROUP BY 
-    u.Nombre,
-    e.NombreEvento,
-    z.NombreZona,
-    c.MetodoPago,
-    c.EstadoPago,
-    c.FechaCompra
-ORDER BY 
-    c.FechaC
-GO
 
