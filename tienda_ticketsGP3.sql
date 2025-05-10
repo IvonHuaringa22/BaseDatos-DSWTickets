@@ -20,6 +20,7 @@ CREATE TABLE Usuarios (
     TipoUsuario NVARCHAR(20) -- 'Cliente' o 'Administrador'
 );
 
+
 CREATE TABLE Eventos (
     IdEvento INT PRIMARY KEY IDENTITY,
     NombreEvento NVARCHAR(150),
@@ -38,6 +39,14 @@ CREATE TABLE Zonas (
     Capacidad INT -- Total de tickets disponibles en esa zona
 );
 
+CREATE TABLE Clientes (
+    IdCliente INT PRIMARY KEY IDENTITY(1,1),
+    Nombre NVARCHAR(100),
+    DNI NVARCHAR(15),
+    Telefono NVARCHAR(20),
+    IdUsuario INT FOREIGN KEY REFERENCES Usuarios(IdUsuario)
+);
+
 CREATE TABLE Compras (
     IdCompra INT PRIMARY KEY IDENTITY,
     IdUsuario INT FOREIGN KEY REFERENCES Usuarios(IdUsuario),
@@ -52,13 +61,7 @@ CREATE TABLE Tickets (
     IdZona INT FOREIGN KEY REFERENCES Zonas(IdZona)
 );
 
-CREATE TABLE Clientes (
-    IdCliente INT PRIMARY KEY IDENTITY(1,1),
-    Nombre NVARCHAR(100),
-    DNI NVARCHAR(15),
-    Telefono NVARCHAR(20),
-    IdUsuario INT FOREIGN KEY REFERENCES Usuarios(IdUsuario)
-);
+select * from Clientes
 
 ------ PROCEDIMIENTOS CRUD USUARIO ----------
 
@@ -204,6 +207,15 @@ BEGIN
 END;
 GO
 
+CREATE PROCEDURE BuscarEventosPorNombre
+    @NombreEvento NVARCHAR(100)
+AS
+BEGIN
+    SELECT * 
+    FROM Eventos
+    WHERE NombreEvento LIKE '%' + @NombreEvento + '%'
+END
+
 -------------PROCEDIMIENTOS COMPRA TICKETS -------------------
 
 CREATE PROCEDURE RegistrarCompra
@@ -272,13 +284,10 @@ BEGIN
 END;
 GO
 
-
 ------------------------------- INSERCIONES-----------------------------------
 
 ---- Insertar usuarios-----------
-EXEC RegistrarUsuario 'Sayuri Huaringa', 'sayuri@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
-EXEC RegistrarUsuario 'Carlos Admin', 'admin@email.com', 'admin123', 'Administrador';
-EXEC RegistrarUsuario 'Ivon Huaringa', 'ivonhuaringa@gmail.com', '$2a$12$r0iMhShyg.sT2x8TB59rauSGDDTsy2BrKW2RhIWYR2Ash8qTRK1ce', 'Administrador';
+EXEC RegistrarUsuario 'Ivon Huaringa', 'ivon@gmail.com', '$2a$12$r0iMhShyg.sT2x8TB59rauSGDDTsy2BrKW2RhIWYR2Ash8qTRK1ce', 'Administrador';
 EXEC RegistrarUsuario 'Andre Quinteros', 'andre@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
 EXEC RegistrarUsuario 'Nilton Flores', 'nilton@gmail.com', '$2a$12$bBz7St.uYNbY3UUkF9MbG.zzJWklmlz/w6wFxswEbddwxfLPPGIFG', 'Cliente';
 
@@ -293,7 +302,17 @@ INSERT INTO Eventos (NombreEvento, TipoEvento, Lugar, Fecha, Hora, Descripcion) 
 ('Concierto de Rock', 'Concierto', 'Estadio Nacional', '2025-06-15', '19:30:00', 'Una noche llena de rock y energía.'),
 ('Obra de Teatro Clásica', 'Teatro', 'Teatro Municipal', '2025-07-10', '18:00:00', 'Presentación de una obra clásica con actores reconocidos.'),
 ('Maratón Ciudad', 'Carrera', 'Parque Central', '2025-08-20', '07:00:00', 'Evento de maratón en el centro de la ciudad.'),
-('Festival de Jazz', 'Concierto', 'Plaza Mayor', '2025-09-05', '20:00:00', 'Músicos de renombre en una noche de jazz imperdible.');
+('Festival de Jazz', 'Concierto', 'Plaza Mayor', '2025-09-05', '20:00:00', 'Músicos de renombre en una noche de jazz imperdible.'),
+('Concierto en el Estadio Nacional', 'Concierto', 'Estadio Nacional, Lima, Perú', '2025-06-15', '20:00:00', 'Un evento increíble con artistas internacionales.'),
+('Obra de Teatro: La Casa de Papel', 'Teatro', 'Teatro Municipal de Lima', '2025-07-20', '19:30:00', 'Una puesta en escena basada en la famosa serie.'),
+('Carrera 10K Lima', 'Carrera', 'Parque Kennedy, Miraflores, Lima, Perú', '2025-08-10', '07:00:00', 'Una emocionante carrera por las principales calles de Miraflores.'),
+('Festival de Música Latina', 'Concierto', 'Parque de la Exposición, Lima, Perú', '2025-09-01', '18:00:00', 'Disfruta de los mejores artistas latinos.'),
+('Obra de Teatro: Hamlet', 'Teatro', 'Teatro La Plaza, Lima, Perú', '2025-09-25', '20:00:00', 'Una interpretación moderna de la famosa obra de Shakespeare.'),
+('Maratón Lima 42K', 'Carrera', 'Circuito de playas, Lima, Perú', '2025-10-05', '06:00:00', 'La maratón más esperada de la ciudad.'),
+('Concierto Rock en el Parque de la Reserva', 'Concierto', 'Parque de la Reserva, Lima, Perú', '2025-10-20', '19:00:00', 'Un evento para los amantes del rock en vivo.'),
+('Obra de Teatro: El Fantasma de la Ópera', 'Teatro', 'Teatro Municipal de Lima', '2025-11-10', '19:30:00', 'Una adaptación de la famosa obra musical.'),
+('Carrera 5K Miraflores', 'Carrera', 'Malecón de Miraflores, Lima, Perú', '2025-11-15', '08:00:00', 'Una carrera de 5K para disfrutar del paisaje de Miraflores.'),
+('Festival de Jazz en Lima', 'Concierto', 'Centro de Convenciones, Lima, Perú', '2025-12-01', '17:00:00', 'Vive la experiencia del jazz con músicos internacionales.');
 
 -- Insertar zonas para cada evento
 INSERT INTO Zonas (IdEvento, NombreZona, Precio, Capacidad) VALUES
@@ -303,7 +322,37 @@ INSERT INTO Zonas (IdEvento, NombreZona, Precio, Capacidad) VALUES
 (2, 'General', 60.00, 800),
 (3, 'Inscripción Individual', 50.00, 1000), -- Maratón Ciudad
 (4, 'VIP', 100.00, 400), -- Festival de Jazz
-(4, 'General', 50.00, 1500);
+(4, 'General', 50.00, 1500),
+(5, 'VIP', 300.00, 1000),
+(5, 'Media', 150.00, 2000),
+(5, 'Popular', 50.00, 3000),
+(6, 'VIP', 120.00, 500),
+(6, 'Media', 80.00, 800),
+(6, 'Popular', 40.00, 1000),
+(7, 'VIP', 50.00, 200),
+(7, 'Media', 30.00, 500),
+(7, 'Popular', 10.00, 1000),
+(8, 'VIP', 150.00, 700),
+(8, 'Media', 100.00, 1500),
+(8, 'Popular', 40.00, 2500),
+(9, 'VIP', 200.00, 400),
+(9, 'Media', 120.00, 900),
+(9, 'Popular', 60.00, 1500),
+(10, 'VIP', 60.00, 300),
+(10, 'Media', 40.00, 600),
+(10, 'Popular', 20.00, 1200),
+(11, 'VIP', 250.00, 800),
+(11, 'Media', 100.00, 1500),
+(11, 'Popular', 70.00, 2500),
+(12, 'VIP', 180.00, 600),
+(12, 'Media', 120.00, 1000),
+(12, 'Popular', 50.00, 1500),
+(13, 'VIP', 40.00, 500),
+(13, 'Media', 30.00, 800),
+(13, 'Popular', 10.00, 2000),
+(14, 'VIP', 350.00, 1000),
+(14, 'Media', 200.00, 1500),
+(14, 'Popular', 100.00, 2500);
 
 -- Registrar compra
 DECLARE @IdCompra INT;
